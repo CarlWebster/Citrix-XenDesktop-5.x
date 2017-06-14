@@ -1,4 +1,4 @@
-﻿#Requires -Version 3.0
+#Requires -Version 3.0
 #This File is in Unicode format.  Do not edit in an ASCII editor.
 
 #region help text
@@ -58,6 +58,40 @@
 	If either registry key does not exist and this parameter is not specified, the report will
 	not contain a Company Name on the cover page.
 	This parameter is only valid with the MSWORD and PDF output parameters.
+.PARAMETER CompanyAddress
+	Company Address to use for the Cover Page, if the Cover Page has the Address field.  
+		The following Cover Pages have an Address field:
+			Banded (Word 2013/2016)
+			Contrast (Word 2010)
+			Exposure (Word 2010)
+			Filigree (Word 2013/2016)
+			Ion (Dark) (Word 2013/2016)
+			Retrospect (Word 2013/2016)
+			Semaphore (Word 2013/2016)
+			Tiles (Word 2010)
+			ViewMaster (Word 2013/2016)
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CA.
+.PARAMETER CompanyEmail
+	Company Email to use for the Cover Page, if the Cover Page has the Email field.  
+		The following Cover Pages have an Email field:
+			Facet (Word 2013/2016)
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CE.
+.PARAMETER CompanyFax
+	Company Fax to use for the Cover Page, if the Cover Page has the Fax field.  
+		The following Cover Pages have a Fax field:
+			Contrast (Word 2010)
+			Exposure (Word 2010)
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CF.
+.PARAMETER CompanyPhone
+	Company Phone to use for the Cover Page, if the Cover Page has the Phone field.  
+		The following Cover Pages have a Phone field:
+			Contrast (Word 2010)
+			Exposure (Word 2010)
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CPh.
 .PARAMETER CoverPage
 	What Microsoft Word Cover Page to use.
 	Only Word 2010, 2013 and 2016 are supported.
@@ -444,6 +478,30 @@
 		Carl Webster for the User Name (alias UN).
 		The computer running the script for the AdminAddress.
 .EXAMPLE
+	PS C:\PSScript .\XD5_Inventory.ps1 -CompanyName "Sherlock Holmes Consulting" `
+	-CoverPage Exposure -UserName "Dr. Watson" `
+	-CompanyAddress "221B Baker Street, London, England" `
+	-CompanyFax "+44 1753 276600" `
+	-CompanyPhone "+44 1753 276200"
+
+	Will use:
+		Sherlock Holmes Consulting for the Company Name.
+		Exposure for the Cover Page format.
+		Dr. Watson for the User Name.
+		221B Baker Street, London, England for the Company Address.
+		+44 1753 276600 for the Company Fax.
+		+44 1753 276200 for the Compnay Phone.
+.EXAMPLE
+	PS C:\PSScript .\XD5_Inventory.ps1 -CompanyName "Sherlock Holmes Consulting" `
+	-CoverPage Facet -UserName "Dr. Watson" `
+	-CompanyEmail SuperSleuth@SherlockHolmes.com
+
+	Will use:
+		Sherlock Holmes Consulting for the Company Name.
+		Facet for the Cover Page format.
+		Dr. Watson for the User Name.
+		SuperSleuth@SherlockHolmes.com for the Compnay Email.
+.EXAMPLE
 	PS C:\PSScript > .\XD5_Inventory.ps1 -AddDateTime
 	
 	Will use all Default values.
@@ -533,9 +591,9 @@
 	No objects are output from this script.  This script creates a Word, PDF, formatted text or HTML document.
 .NOTES
 	NAME: XD5_Inventory.ps1
-	VERSION: 1.21
+	VERSION: 1.22
 	AUTHOR: Carl Webster
-	LASTEDIT: February 13, 2017
+	LASTEDIT: June 14, 2017
 #>
 
 #endregion
@@ -615,6 +673,34 @@ Param(
 	[Alias("CN")]
 	[ValidateNotNullOrEmpty()]
 	[string]$CompanyName="",
+    
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Alias("CA")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyAddress="",
+    
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Alias("CE")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyEmail="",
+    
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Alias("CF")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyFax="",
+    
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Alias("CPh")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyPhone="",
     
 	[parameter(ParameterSetName="Word",Mandatory=$False)] 
 	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
@@ -715,6 +801,22 @@ Param(
 #Version 1.21 13-Feb-2017
 #	Fixed French wording for Table of Contents 2 (Thanks to David Rouquier)
 #
+#Version 1.22 14-Jun-2017
+#	Add four new Cover Page properties
+#		Company Address
+#		Company Email
+#		Company Fax
+#		Company Phone
+#	Added back the WorkerGroup policy filter for XenApp 6.x
+#	Fix bug when retrieving Filters for a Policy that "applies to all objects in the Site"
+#	Fix Function Check-LoadedModule
+#	Fix several typos
+#	Fix Switch blocks by adding Break statements
+#	Remove code (168 lines) that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
+#	Replace _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
+#	Update Function ShowScriptOptions for the new Cover Page properties
+#	Update Function UpdateDocumentProperties for the new Cover Page properties
+#	Update help text
 #endregion
 
 #region initial variable testing and setup
@@ -724,176 +826,6 @@ Set-StrictMode -Version 2
 $PSDefaultParameterValues = @{"*:Verbose"=$True}
 $SaveEAPreference = $ErrorActionPreference
 $ErrorActionPreference = 'SilentlyContinue'
-
-If($MSWord -eq $Null)
-{
-	$MSWord = $False
-}
-If($PDF -eq $Null)
-{
-	$PDF = $False
-}
-If($Text -eq $Null)
-{
-	$Text = $False
-}
-If($HTML -eq $Null)
-{
-	$HTML = $False
-}
-If($MachineCatalogs -eq $Null)
-{
-	$MachineCatalogs = $False
-}
-If($DeliveryGroups -eq $Null)
-{
-	$DeliveryGroups = $False
-}
-If($DeliveryGroupsUtilization -eq $Null)
-{
-	$DeliveryGroupsUtilization = $False
-}
-If($Applications -eq $Null)
-{
-	$Applications = $False
-}
-If($Policies -eq $Null)
-{
-	$Policies = $False
-}
-If($NoPolicies -eq $Null)
-{
-	$NoPolicies = $False
-}
-If($NoADPolicies -eq $Null)
-{
-	$NoADPolicies = $False
-}
-If($Hosting -eq $Null)
-{
-	$Hosting = $False
-}
-If($AddDateTime -eq $Null)
-{
-	$AddDateTime = $False
-}
-If($Hardware -eq $Null)
-{
-	$Hardware = $False
-}
-If($AdminAddress -eq $Null)
-{
-	$AdminAddress = "LocalHost"
-}
-If($Folder -eq $Null)
-{
-	$Folder = ""
-}
-If($SmtpServer -eq $Null)
-{
-	$SmtpServer = ""
-}
-If($SmtpPort -eq $Null)
-{
-	$SmtpPort = 25
-}
-If($UseSSL -eq $Null)
-{
-	$UseSSL = $False
-}
-If($From -eq $Null)
-{
-	$From = ""
-}
-If($To -eq $Null)
-{
-	$To = ""
-}
-
-If(!(Test-Path Variable:MSWord))
-{
-	$MSWord = $False
-}
-If(!(Test-Path Variable:PDF))
-{
-	$PDF = $False
-}
-If(!(Test-Path Variable:Text))
-{
-	$Text = $False
-}
-If(!(Test-Path Variable:HTML))
-{
-	$HTML = $False
-}
-If(!(Test-Path Variable:MachineCatalogs))
-{
-	$MachineCatalogs = $False
-}
-If(!(Test-Path Variable:DeliveryGroups))
-{
-	$DeliveryGroups = $False
-}
-If(!(Test-Path Variable:DeliveryGroupsUtilization))
-{
-	$DeliveryGroupsUtilization = $False
-}
-If(!(Test-Path Variable:Applications))
-{
-	$Applications = $False
-}
-If(!(Test-Path Variable:Policies))
-{
-	$Policies = $False
-}
-If(!(Test-Path Variable:NoPolicies))
-{
-	$NoPolicies = $False
-}
-If(!(Test-Path Variable:NoADPolicies))
-{
-	$NoADPolicies = $False
-}
-If(!(Test-Path Variable:Hosting))
-{
-	$Hosting = $False
-}
-If(!(Test-Path Variable:AddDateTime))
-{
-	$AddDateTime = $False
-}
-If(!(Test-Path Variable:Hardware))
-{
-	$Hardware = $False
-}
-If(!(Test-Path Variable:AdminAddress))
-{
-	$AdminAddress = "LocalHost"
-}
-If(!(Test-Path Variable:Folder))
-{
-	$Folder = ""
-}
-If(!(Test-Path Variable:SmtpServer))
-{
-	$SmtpServer = ""
-}
-If(!(Test-Path Variable:SmtpPort))
-{
-	$SmtpPort = 25
-}
-If(!(Test-Path Variable:UseSSL))
-{
-	$UseSSL = $False
-}
-If(!(Test-Path Variable:From))
-{
-	$From = ""
-}
-If(!(Test-Path Variable:To))
-{
-	$To = ""
-}
 
 If($MSWord -eq $Null)
 {
@@ -2720,21 +2652,44 @@ Function ValidateCompanyName
 	}
 }
 
-Function _SetDocumentProperty 
-{
-	#jeff hicks
-	Param([object]$Properties,[string]$Name,[string]$Value)
-	#get the property object
-	$prop = $properties | ForEach { 
-		$propname=$_.GetType().InvokeMember("Name","GetProperty",$Null,$_,$Null)
-		If($propname -eq $Name) 
-		{
-			Return $_
-		}
-	} #ForEach
-
-	#set the value
-	$Prop.GetType().InvokeMember("Value","SetProperty",$Null,$prop,$Value)
+Function Set-DocumentProperty {
+    <#
+	.SYNOPSIS
+	Function to set the Title Page document properties in MS Word
+	.DESCRIPTION
+	Long description
+	.PARAMETER Document
+	Current Document Object
+	.PARAMETER DocProperty
+	Parameter description
+	.PARAMETER Value
+	Parameter description
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Title -Value 'MyTitle'
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Company -Value 'MyCompany'
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Author -Value 'Jim Moyle'
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Subject -Value 'MySubjectTitle'
+	.NOTES
+	Function Created by Jim Moyle June 2017
+	Twitter : @JimMoyle
+	#>
+    param (
+        [object]$Document,
+        [String]$DocProperty,
+        [string]$Value
+    )
+    try {
+        $binding = "System.Reflection.BindingFlags" -as [type]
+        $builtInProperties = $Document.BuiltInDocumentProperties
+        $property = [System.__ComObject].invokemember("item", $binding::GetProperty, $null, $BuiltinProperties, $DocProperty)
+        [System.__ComObject].invokemember("value", $binding::SetProperty, $null, $property, $Value)
+    }
+    catch {
+        Write-Warning "Failed to set $DocProperty to $Value"
+    }
 }
 
 Function FindWordDocumentEnd
@@ -3097,24 +3052,24 @@ Function SetupWord
 Function UpdateDocumentProperties
 {
 	Param([string]$AbstractTitle, [string]$SubjectTitle)
+	#updated 8-Jun-2017 with additional cover page fields
 	#Update document properties
 	If($MSWORD -or $PDF)
 	{
 		If($Script:CoverPagesExist)
 		{
 			Write-Verbose "$(Get-Date): Set Cover Page Properties"
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Company" $Script:CoName
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Title" $title
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Author" $username
-
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Subject" $SubjectTitle
+			#8-Jun-2017 put these 4 items in alpha order
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Author -Value $UserName
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Company -Value $Script:CoName
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Subject -Value $SubjectTitle
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Title -Value $Script:title
 
 			#Get the Coverpage XML part
 			$cp = $Script:Doc.CustomXMLParts | Where {$_.NamespaceURI -match "coverPageProps$"}
 
 			#get the abstract XML part
 			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "Abstract"}
-
 			#set the text
 			If([String]::IsNullOrEmpty($Script:CoName))
 			{
@@ -3122,9 +3077,32 @@ Function UpdateDocumentProperties
 			}
 			Else
 			{
-				[string]$abstract = "$($AbstractTitle) for $Script:CoName"
+				[string]$abstract = "$($AbstractTitle) for $($Script:CoName)"
 			}
+			$ab.Text = $abstract
 
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyAddress"}
+			#set the text
+			[string]$abstract = $CompanyAddress
+			$ab.Text = $abstract
+
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyEmail"}
+			#set the text
+			[string]$abstract = $CompanyEmail
+			$ab.Text = $abstract
+
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyFax"}
+			#set the text
+			[string]$abstract = $CompanyFax
+			$ab.Text = $abstract
+
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyPhone"}
+			#set the text
+			[string]$abstract = $CompanyPhone
 			$ab.Text = $abstract
 
 			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "PublishDate"}
@@ -3208,12 +3186,12 @@ Function WriteWordLine
 	[string]$output = ""
 	Switch ($style)
 	{
-		0 {$Script:Selection.Style = $Script:MyHash.Word_NoSpacing}
-		1 {$Script:Selection.Style = $Script:MyHash.Word_Heading1}
-		2 {$Script:Selection.Style = $Script:MyHash.Word_Heading2}
-		3 {$Script:Selection.Style = $Script:MyHash.Word_Heading3}
-		4 {$Script:Selection.Style = $Script:MyHash.Word_Heading4}
-		Default {$Script:Selection.Style = $Script:MyHash.Word_NoSpacing}
+		0 {$Script:Selection.Style = $Script:MyHash.Word_NoSpacing; Break}
+		1 {$Script:Selection.Style = $Script:MyHash.Word_Heading1; Break}
+		2 {$Script:Selection.Style = $Script:MyHash.Word_Heading2; Break}
+		3 {$Script:Selection.Style = $Script:MyHash.Word_Heading3; Break}
+		4 {$Script:Selection.Style = $Script:MyHash.Word_Heading4; Break}
+		Default {$Script:Selection.Style = $Script:MyHash.Word_NoSpacing; Break}
 	}
 	
 	#build # of tabs
@@ -4264,8 +4242,8 @@ Function Check-LoadedModule
 	#was manually loaded from a non Default folder
 	#$ModuleFound = (!$LoadedModules -like "*$ModuleName*")
 	
-	[bool]$ModuleFound = ($LoadedModules -contains "*$ModuleName*")
-	If(!$ModuleFound) 
+	[string]$ModuleFound = ($LoadedModules -like "*$ModuleName*")
+	If($ModuleFound -ne $ModuleName) 
 	{
 		$module = Import-Module -Name $ModuleName -PassThru -EA 0 4>$Null
 		If($module -and $?)
@@ -4577,6 +4555,10 @@ Function ShowScriptOptions
 	If($MSWord -or $PDF)
 	{
 		Write-Verbose "$(Get-Date): Company Name    : $($Script:CoName)"
+		Write-Verbose "$(Get-Date): Company Address : $($CompanyAddress)"
+		Write-Verbose "$(Get-Date): Company Email   : $($CompanyEmail)"
+		Write-Verbose "$(Get-Date): Company Fax     : $($CompanyFax)"
+		Write-Verbose "$(Get-Date): Company Phone   : $($CompanyPhone)"
 		Write-Verbose "$(Get-Date): Cover Page      : $($CoverPage)"
 		Write-Verbose "$(Get-Date): User Name       : $($UserName)"
 		Write-Verbose "$(Get-Date): Save As Word    : $($Word)"
@@ -5018,35 +5000,35 @@ Function OutputMachineDesktopDetails
 	$xLastDeregistrationReason = ""
 	Switch ($Machine.LastDeregistrationReason)
 	{
-		$null						{$xLastDeregistrationReason = ""}
-		"AgentAddressResolutionFailed"	{$xLastDeregistrationReason = "Agent Address Resolution Failed"}
-		"AgentConfigurationError"		{$xLastDeregistrationReason = "Agent Configuration Error"}
-		"AgentNotContactable"			{$xLastDeregistrationReason = "Agent Not Contactable"}
-		"AgentRejectedConfiguration"		{$xLastDeregistrationReason = "Agent Rejected Configuration"}
-		"AgentRequested"				{$xLastDeregistrationReason = "Agent Requested"}
-		"AgentShutdown"				{$xLastDeregistrationReason = "Agent Shutdown"}
-		"AgentSuspended"				{$xLastDeregistrationReason = "Agent Suspended"}
-		"BrokerError"				{$xLastDeregistrationReason = "Broker Error"}
-		"BrokerRegistrationLimitReached"	{$xLastDeregistrationReason = "Broker Registration Limit Reached"}
-		"CommunicationFailure"			{$xLastDeregistrationReason = "Communication Failure"}
-		"ContactLost"				{$xLastDeregistrationReason = "Contact Lost"}
-		"DesktopRemoved"				{$xLastDeregistrationReason = "Desktop Removed"}
-		"DesktopRestart"				{$xLastDeregistrationReason = "Desktop Restart"}
-		"IncompatibleAgent"			{$xLastDeregistrationReason = "Incompatible Agent"}
-		Default {$xLastDeregistrationReason = "Unable to determine LastDeregistrationReason: $($Machine.LastDeregistrationReason)"}
+		$null								{$xLastDeregistrationReason = ""; Break}
+		"AgentAddressResolutionFailed"		{$xLastDeregistrationReason = "Agent Address Resolution Failed"; Break}
+		"AgentConfigurationError"			{$xLastDeregistrationReason = "Agent Configuration Error"; Break}
+		"AgentNotContactable"				{$xLastDeregistrationReason = "Agent Not Contactable"; Break}
+		"AgentRejectedConfiguration"		{$xLastDeregistrationReason = "Agent Rejected Configuration"; Break}
+		"AgentRequested"					{$xLastDeregistrationReason = "Agent Requested"; Break}
+		"AgentShutdown"						{$xLastDeregistrationReason = "Agent Shutdown"; Break}
+		"AgentSuspended"					{$xLastDeregistrationReason = "Agent Suspended"; Break}
+		"BrokerError"						{$xLastDeregistrationReason = "Broker Error"; Break}
+		"BrokerRegistrationLimitReached"	{$xLastDeregistrationReason = "Broker Registration Limit Reached"; Break}
+		"CommunicationFailure"				{$xLastDeregistrationReason = "Communication Failure"; Break}
+		"ContactLost"						{$xLastDeregistrationReason = "Contact Lost"; Break}
+		"DesktopRemoved"					{$xLastDeregistrationReason = "Desktop Removed"; Break}
+		"DesktopRestart"					{$xLastDeregistrationReason = "Desktop Restart"; Break}
+		"IncompatibleAgent"					{$xLastDeregistrationReason = "Incompatible Agent"; Break}
+		Default {$xLastDeregistrationReason = "Unable to determine LastDeregistrationReason: $($Machine.LastDeregistrationReason)"; Break}
 	}
 		
 	$xLastConnectionFailure = ""
 	Switch ($Details.LastConnectionFailure)
 	{
-		"ConnectionTimeout"	{$xLastConnectionFailure = "Connection TImeout"}
-		"Licensing"			{$xLastConnectionFailure = "Licensing"}
-		"None"			{$xLastConnectionFailure = "None"}
-		"Other"			{$xLastConnectionFailure = "Other"}
-		"RegistrationTimeout"	{$xLastConnectionFailure = "Registration TImeout"}
-		"SessionPreparation"	{$xLastConnectionFailure = "Session Preparation"}
-		"Ticketing"			{$xLastConnectionFailure = "Ticketing"}
-		Default {$xLastConnectionFailure = "Unable to determine Last Connection Failure: $($Details.LastConnectionFailure)"}
+		"ConnectionTimeout"		{$xLastConnectionFailure = "Connection TImeout"; Break}
+		"Licensing"				{$xLastConnectionFailure = "Licensing"; Break}
+		"None"					{$xLastConnectionFailure = "None"; Break}
+		"Other"					{$xLastConnectionFailure = "Other"; Break}
+		"RegistrationTimeout"	{$xLastConnectionFailure = "Registration Timeout"; Break}
+		"SessionPreparation"	{$xLastConnectionFailure = "Session Preparation"; Break}
+		"Ticketing"				{$xLastConnectionFailure = "Ticketing"; Break}
+		Default {$xLastConnectionFailure = "Unable to determine Last Connection Failure: $($Details.LastConnectionFailure)"; Break}
 	}
 		
 	$xDesktopConditions = @()
@@ -6412,11 +6394,11 @@ Function OutputApplicationDetails
 	
 	Switch ($Application.CpuPriorityLevel)
 	{
-		"Low" 		{$xCPUPriorityLevel = "Low"}
-		"BelowNormal" 	{$xCPUPriorityLevel = "Below normal"}
-		"Normal" 		{$xCPUPriorityLevel = "Normal"}
-		"AboveNormal"	{$xCPUPriorityLevel = "Above normal"}
-		"High" 		{$xCPUPriorityLevel = "High"}
+		"Low" 			{$xCPUPriorityLevel = "Low"; Break}
+		"BelowNormal" 	{$xCPUPriorityLevel = "Below normal"; Break}
+		"Normal" 		{$xCPUPriorityLevel = "Normal"; Break}
+		"AboveNormal"	{$xCPUPriorityLevel = "Above normal"; Break}
+		"High" 			{$xCPUPriorityLevel = "High"; Break}
 		Default {$xCPUPriorityLevel = "Unable to determine CPU Priority level: $($Application.CpuPriorityLevel)"}
 	}
 
@@ -7660,15 +7642,17 @@ Function ProcessCitrixPolicies
 						$tmp = ""
 						Switch($filter.FilterType)
 						{
-							"DesktopGroup"   {$tmp = "Desktop Group"}
-							"DesktopKind"    {$tmp = "Desktop Type"}
-							"OU"             {$tmp = "Organizational Unit"}
-							"DesktopTag"     {$tmp = "Tag"}
-							"User"           {$tmp = "User or Group"}
-							"ClientName"     {$tmp = "Client Name"}
-							"ClientIP"       {$tmp = "Client IP Address"}
-							"BranchRepeater" {$tmp = "Branch Repeater"}
-							Default {$tmp = "Policy Filter Type could not be determined: $($filter.FilterType)"}
+							"AccessControl"  {$tmp = "Access Control"; Break}
+							"BranchRepeater" {$tmp = "Branch Repeater"; Break}
+							"ClientIP"       {$tmp = "Client IP Address"; Break}
+							"ClientName"     {$tmp = "Client Name"; Break}
+							"DesktopGroup"   {$tmp = "Desktop Group"; Break}
+							"DesktopKind"    {$tmp = "Desktop Type"; Break}
+							"DesktopTag"     {$tmp = "Tag"; Break}
+							"OU"             {$tmp = "Organizational Unit"; Break}
+							"User"           {$tmp = "User or Group"; Break}
+							"WorkerGroup"    {$tmp = "Worker Group"; Break}
+							Default {$tmp = "Policy Filter Type could not be determined: $($filter.FilterType)"; Break}
 						}
 						
 						If($MSWord -or $PDF)
@@ -7742,44 +7726,61 @@ Function ProcessCitrixPolicies
 					}
 				}
 			}
-			Else
+			ElseIf($? -and $Null -eq $Filters)
 			{
-				If($Policy.PolicyName -eq "Unfiltered")
+				$txt = "$($Policy.PolicyName) policy applies to all objects in the Site"
+				If($MSWord -or $PDF)
 				{
-					$txt = "Unfiltered policy has no filter settings"
-					If($MSWord -or $PDF)
-					{
-						WriteWordLine 3 0 "Filter(s)"
-						WriteWordLine 0 1 $txt
-					}
-					ElseIf($Text)
-					{
-						Line 0 "Filter(s)"
-						Line 1 $txt
-					}
-					ElseIf($HTML)
-					{
-						WriteHTMLLine 3 0 "Filter(s)"
-						WriteHTMLLine 0 1 $txt
-					}
+					WriteWordLine 3 0 "Assigned to"
+					WriteWordLine 0 1 $txt
 				}
-				Else
+				ElseIf($Text)
 				{
-					$txt = "Unable to retrieve Filter settings"
-					If($MSWord -or $PDF)
-					{
-						WriteWordLine 0 1 $txt
-					}
-					ElseIf($Text)
-					{
-						Line 1 $txt
-					}
-					ElseIf($HTML)
-					{
-						WriteHTMLLine 0 1 $txt
-					}
+					Line 0 "Assigned to"
+					Line 1 $txt
+				}
+				ElseIf($HTML)
+				{
+					WriteHTMLLine 3 0 "Assigned to"
+					WriteHTMLLine 0 1 $txt
 				}
 			}
+			ElseIf($? -and $Policy.PolicyName -eq "Unfiltered")
+			{
+				$txt = "Unfiltered policy applies to all objects in the Site"
+				If($MSWord -or $PDF)
+				{
+					WriteWordLine 3 0 "Assigned to"
+					WriteWordLine 0 1 $txt
+				}
+				ElseIf($Text)
+				{
+					Line 0 "Assigned to"
+					Line 1 $txt
+				}
+				ElseIf($HTML)
+				{
+					WriteHTMLLine 3 0 "Assigned to"
+					WriteHTMLLine 0 1 $txt
+				}
+			}
+			Else
+			{
+				$txt = "Unable to retrieve Filter settings"
+				If($MSWord -or $PDF)
+				{
+					WriteWordLine 0 1 $txt
+				}
+				ElseIf($Text)
+				{
+					Line 1 $txt
+				}
+				ElseIf($HTML)
+				{
+					WriteHTMLLine 0 1 $txt
+				}
+			}
+
 			$Settings = Get-CtxGroupPolicyConfiguration -PolicyName $Policy.PolicyName -Type $Policy.Type -DriveName $xDriveName -EA 0
 				
 			If($? -and $Null -ne $Settings)
@@ -7866,9 +7867,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.AutoClientReconnectAuthenticationRequired.Value)
 							{
-								"DoNotRequireAuthentication" {$tmp = "Do not require authentication"}
-								"RequireAuthentication"      {$tmp = "Require authentication"}
-								Default {$tmp = "Auto client reconnect authentication could not be determined: $($Setting.AutoClientReconnectAuthenticationRequired.Value)"}
+								"DoNotRequireAuthentication" {$tmp = "Do not require authentication"; Break}
+								"RequireAuthentication"      {$tmp = "Require authentication"; Break}
+								Default {$tmp = "Auto client reconnect authentication could not be determined: $($Setting.AutoClientReconnectAuthenticationRequired.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -7890,9 +7891,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.AutoClientReconnectLogging.Value)
 							{
-								"DoNotLogAutoReconnectEvents" {$tmp = "Do Not Log auto-reconnect events"}
-								"LogAutoReconnectEvents"      {$tmp = "Log auto-reconnect events"}
-								Default {$tmp = "Auto client reconnect logging could not be determined: $($Setting.AutoClientReconnectLogging.Value)"}
+								"DoNotLogAutoReconnectEvents" {$tmp = "Do Not Log auto-reconnect events"; Break}
+								"LogAutoReconnectEvents"      {$tmp = "Log auto-reconnect events"; Break}
+								Default {$tmp = "Auto client reconnect logging could not be determined: $($Setting.AutoClientReconnectLogging.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -7982,9 +7983,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.DisplayDegradePreference.Value)
 							{
-								"ColorDepth" {$tmp = "Degrade color depth first"}
-								"Resolution" {$tmp = "Degrade resolution first"}
-								Default {$tmp = "Display mode degrade preference could not be determined: $($Setting.DisplayDegradePreference.Value)"}
+								"ColorDepth" {$tmp = "Degrade color depth first"; Break}
+								"Resolution" {$tmp = "Degrade resolution first"; Break}
+								Default {$tmp = "Display mode degrade preference could not be determined: $($Setting.DisplayDegradePreference.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -8106,9 +8107,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.IcaKeepAlives.Value)
 							{
-								"DoNotSendKeepAlives" {$tmp = "Do not send ICA keep alive messages"}
-								"SendKeepAlives"      {$tmp = "Send ICA keep alive messages"}
-								Default {$tmp = "ICA keep alives could not be determined: $($Setting.IcaKeepAlives.Value)"}
+								"DoNotSendKeepAlives" {$tmp = "Do not send ICA keep alive messages"; Break}
+								"SendKeepAlives"      {$tmp = "Send ICA keep alive messages"; Break}
+								Default {$tmp = "ICA keep alives could not be determined: $($Setting.IcaKeepAlives.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -8233,24 +8234,24 @@ Function ProcessCitrixPolicies
 								$cgpport3 = $cgpport3.substring(0, $cgpport3.indexof(","))
 								Switch ($cgpport1priority)
 								{
-									"0"	{$Port1Priority = "Very High"}
-									"2"	{$Port1Priority = "Medium"}
-									"3"	{$Port1Priority = "Low"}
-									Default	{$Port1Priority = "Unknown"}
+									"0"	{$Port1Priority = "Very High"; Break}
+									"2"	{$Port1Priority = "Medium"; Break}
+									"3"	{$Port1Priority = "Low"; Break}
+									Default	{$Port1Priority = "Unknown"; Break}
 								}
 								Switch ($cgpport2priority)
 								{
-									"0"	{$Port2Priority = "Very High"}
-									"2"	{$Port2Priority = "Medium"}
-									"3"	{$Port2Priority = "Low"}
-									Default	{$Port2Priority = "Unknown"}
+									"0"	{$Port2Priority = "Very High"; Break}
+									"2"	{$Port2Priority = "Medium"; Break}
+									"3"	{$Port2Priority = "Low"; Break}
+									Default	{$Port2Priority = "Unknown"; Break}
 								}
 								Switch ($cgpport3priority)
 								{
-									"0"	{$Port3Priority = "Very High"}
-									"2"	{$Port3Priority = "Medium"}
-									"3"	{$Port3Priority = "Low"}
-									Default	{$Port3Priority = "Unknown"}
+									"0"	{$Port3Priority = "Very High"; Break}
+									"2"	{$Port3Priority = "Medium"; Break}
+									"3"	{$Port3Priority = "Low"; Break}
+									Default	{$Port3Priority = "Unknown"; Break}
 								}
 								If($MSWord -or $PDF)
 								{
@@ -8618,10 +8619,10 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.FlashDefaultBehavior.Value)
 							{
-								"Block"   {$tmp = "Block Flash player"}
-								"Disable" {$tmp = "Disable Flash acceleration"}
-								"Enable"  {$tmp = "Enable Flash acceleration"}
-								Default {$tmp = "Flash Default behavior could not be determined: $($Setting.FlashDefaultBehavior.Value)"}
+								"Block"   {$tmp = "Block Flash player"; Break}
+								"Disable" {$tmp = "Disable Flash acceleration"; Break}
+								"Enable"  {$tmp = "Enable Flash acceleration"; Break}
+								Default {$tmp = "Flash Default behavior could not be determined: $($Setting.FlashDefaultBehavior.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -8868,10 +8869,10 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.AudioQuality.Value)
 							{
-								"Low"    {$tmp = "Low - for low-speed connections"}
-								"Medium" {$tmp = "Medium - optimized for speech"}
-								"High"   {$tmp = "High - high definition audio"}
-								Default {$tmp = "Audio quality could not be determined: $($Setting.AudioQuality.Value)"}
+								"Low"    {$tmp = "Low - for low-speed connections"; Break}
+								"Medium" {$tmp = "Medium - optimized for speech"; Break}
+								"High"   {$tmp = "High - high definition audio"; Break}
+								Default {$tmp = "Audio quality could not be determined: $($Setting.AudioQuality.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -9578,9 +9579,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.DefaultClientPrinter.Value)
 							{
-								"ClientDefault" {$tmp = "Set Default printer to the client's main printer"}
-								"DoNotAdjust"   {$tmp = "Do not adjust the user's Default printer"}
-								Default {$tmp = "Default printer could not be determined: $($Setting.DefaultClientPrinter.Value)"}
+								"ClientDefault" {$tmp = "Set Default printer to the client's main printer"; Break}
+								"DoNotAdjust"   {$tmp = "Do not adjust the user's Default printer"; Break}
+								Default {$tmp = "Default printer could not be determined: $($Setting.DefaultClientPrinter.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -9602,10 +9603,10 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.AutoCreationEventLogPreference.Value)
 							{
-								"LogErrorsOnly"        {$tmp = "Log errors only"}
-								"LogErrorsAndWarnings" {$tmp = "Log errors and warnings"}
-								"DoNotLog"             {$tmp = "Do not log errors or warnings"}
-								Default {$tmp = "Printer auto-creation event log preference could not be determined: $($Setting.AutoCreationEventLogPreference.Value)"}
+								"LogErrorsOnly"        {$tmp = "Log errors only"; Break}
+								"LogErrorsAndWarnings" {$tmp = "Log errors and warnings"; Break}
+								"DoNotLog"             {$tmp = "Do not log errors or warnings"; Break}
+								Default {$tmp = "Printer auto-creation event log preference could not be determined: $($Setting.AutoCreationEventLogPreference.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -9744,11 +9745,11 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.ClientPrinterAutoCreation.Value)
 							{
-								"DoNotAutoCreate"    {$tmp = "Do not auto-create client printers"}
-								"DefaultPrinterOnly" {$tmp = "Auto-create the client's Default printer only"}
-								"LocalPrintersOnly"  {$tmp = "Auto-create local (non-network) client printers only"}
-								"AllPrinters"        {$tmp = "Auto-create all client printers"}
-								Default {$tmp = "Auto-create client printers could not be determined: $($Setting.ClientPrinterAutoCreation.Value)"}
+								"DoNotAutoCreate"    {$tmp = "Do not auto-create client printers"; Break}
+								"DefaultPrinterOnly" {$tmp = "Auto-create the client's Default printer only"; Break}
+								"LocalPrintersOnly"  {$tmp = "Auto-create local (non-network) client printers only"; Break}
+								"AllPrinters"        {$tmp = "Auto-create all client printers"; Break}
+								Default {$tmp = "Auto-create client printers could not be determined: $($Setting.ClientPrinterAutoCreation.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -9786,9 +9787,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.ClientPrinterNames.Value)
 							{
-								"StandardPrinterNames" {$tmp = "Standard printer names"}
-								"LegacyPrinterNames"   {$tmp = "Legacy printer names"}
-								Default {$tmp = "Client printer names could not be determined: $($Setting.ClientPrinterNames.Value)"}
+								"StandardPrinterNames" {$tmp = "Standard printer names"; Break}
+								"LegacyPrinterNames"   {$tmp = "Legacy printer names"; Break}
+								Default {$tmp = "Client printer names could not be determined: $($Setting.ClientPrinterNames.Value)"; Break}
 							}
 							If($MSWord -or $PDF)
 							{
@@ -9983,11 +9984,11 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.PrinterPropertiesRetention.Value)
 							{
-								"SavedOnClientDevice"   {$tmp = "Saved on the client device only"}
-								"RetainedInUserProfile" {$tmp = "Retained in user profile only"}
-								"FallbackToProfile"     {$tmp = "Held in profile only if not saved on client"}
-								"DoNotRetain"           {$tmp = "Do not retain printer properties"}
-								Default {$tmp = "Printer properties retention could not be determined: $($Setting.PrinterPropertiesRetention.Value)"}
+								"SavedOnClientDevice"   {$tmp = "Saved on the client device only"; Break}
+								"RetainedInUserProfile" {$tmp = "Retained in user profile only"; Break}
+								"FallbackToProfile"     {$tmp = "Held in profile only if not saved on client"; Break}
+								"DoNotRetain"           {$tmp = "Do not retain printer properties"; Break}
+								Default {$tmp = "Printer properties retention could not be determined: $($Setting.PrinterPropertiesRetention.Value)"; Break}
 							}
 
 							If($MSWord -or $PDF)
@@ -10089,11 +10090,11 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.UniversalPrintDriverUsage.Value)
 							{
-								"SpecificOnly"       {$tmp = "Use only printer model specific drivers"}
-								"UpdOnly"            {$tmp = "Use universal printing only"}
-								"FallbackToUpd"      {$tmp = "Use universal printing only if requested driver is unavailable"}
-								"FallbackToSpecific" {$tmp = "Use printer model specific drivers only if universal printing is unavailable"}
-								Default {$tmp = "Universal print driver usage could not be determined: $($Setting.UniversalPrintDriverUsage.Value)"}
+								"SpecificOnly"       {$tmp = "Use only printer model specific drivers"; Break}
+								"UpdOnly"            {$tmp = "Use universal printing only"; Break}
+								"FallbackToUpd"      {$tmp = "Use universal printing only if requested driver is unavailable"; Break}
+								"FallbackToSpecific" {$tmp = "Use printer model specific drivers only if universal printing is unavailable"; Break}
+								Default {$tmp = "Universal print driver usage could not be determined: $($Setting.UniversalPrintDriverUsage.Value)"; Break}
 							}
 
 							If($MSWord -or $PDF)
@@ -10118,9 +10119,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.EMFProcessingMode.Value)
 							{
-								"ReprocessEMFsForPrinter" {$tmp = "Reprocess EMFs for printer"}
-								"SpoolDirectlyToPrinter"  {$tmp = "Spool directly to printer"}
-								Default {$tmp = "Universal printing EMF processing mode could not be determined: $($Setting.EMFProcessingMode.Value)"}
+								"ReprocessEMFsForPrinter" {$tmp = "Reprocess EMFs for printer"; Break}
+								"SpoolDirectlyToPrinter"  {$tmp = "Spool directly to printer"; Break}
+								Default {$tmp = "Universal printing EMF processing mode could not be determined: $($Setting.EMFProcessingMode.Value)"; Break}
 							}
 							 
 							If($MSWord -or $PDF)
@@ -10143,12 +10144,12 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.ImageCompressionLimit.Value)
 							{
-								"NoCompression"       {$tmp = "No compression"}
-								"LosslessCompression" {$tmp = "Best quality (lossless compression)"}
-								"MinimumCompression"  {$tmp = "High quality"}
-								"MediumCompression"   {$tmp = "Standard quality"}
-								"MaximumCompression"  {$tmp = "Reduced quality (maximum compression)"}
-								Default {$tmp = "Universal printing image compression limit could not be determined: $($Setting.ImageCompressionLimit.Value)"}
+								"NoCompression"       {$tmp = "No compression"; Break}
+								"LosslessCompression" {$tmp = "Best quality (lossless compression)"; Break}
+								"MinimumCompression"  {$tmp = "High quality"; Break}
+								"MediumCompression"   {$tmp = "Standard quality"; Break}
+								"MaximumCompression"  {$tmp = "Reduced quality (maximum compression)"; Break}
+								Default {$tmp = "Universal printing image compression limit could not be determined: $($Setting.ImageCompressionLimit.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -10197,10 +10198,10 @@ Function ProcessCitrixPolicies
 										$TxtLabel = "Desired image quality:"
 										Switch($TestSetting)
 										{
-											"StandardQuality"	{$TxtSetting = "Standard quality"}
-											"BestQuality"	{$TxtSetting = "Best quality (lossless compression)"}
-											"HighQuality"	{$TxtSetting = "High quality"}
-											"ReducedQuality"	{$TxtSetting = "Reduced quality (maximum compression)"}
+											"StandardQuality"	{$TxtSetting = "Standard quality"; Break}
+											"BestQuality"		{$TxtSetting = "Best quality (lossless compression)"; Break}
+											"HighQuality"		{$TxtSetting = "High quality"; Break}
+											"ReducedQuality"	{$TxtSetting = "Reduced quality (maximum compression)"; Break}
 										}
 									}
 									"HeavyweightCompression"
@@ -10287,11 +10288,11 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.UniversalPrintingPreviewPreference.Value)
 							{
-								"NoPrintPreview"        {$tmp = "Do not use print preview for auto-created or generic universal printers"}
-								"AutoCreatedOnly"       {$tmp = "Use print preview for auto-created printers only"}
-								"GenericOnly"           {$tmp = "Use print preview for generic universal printers only"}
-								"AutoCreatedAndGeneric" {$tmp = "Use print preview for both auto-created and generic universal printers"}
-								Default {$tmp = "Universal printing preview preference could not be determined: $($Setting.UniversalPrintingPreviewPreference.Value)"}
+								"NoPrintPreview"        {$tmp = "Do not use print preview for auto-created or generic universal printers"; Break}
+								"AutoCreatedOnly"       {$tmp = "Use print preview for auto-created printers only"; Break}
+								"GenericOnly"           {$tmp = "Use print preview for generic universal printers only"; Break}
+								"AutoCreatedAndGeneric" {$tmp = "Use print preview for both auto-created and generic universal printers"; Break}
+								Default {$tmp = "Universal printing preview preference could not be determined: $($Setting.UniversalPrintingPreviewPreference.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -10314,12 +10315,12 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.DPILimit.Value)
 							{
-								"Draft"            {$tmp = "Draft (150 DPI)"}
-								"LowResolution"    {$tmp = "Low Resolution (300 DPI)"}
-								"MediumResolution" {$tmp = "Medium Resolution (600 DPI)"}
-								"HighResolution"   {$tmp = "High Resolution (1200 DPI)"}
-								"Unlimited"       {$tmp = "No Limit"}
-								Default {$tmp = "Universal printing print quality limit could not be determined: $($Setting.DPILimit.Value)"}
+								"Draft"				{$tmp = "Draft (150 DPI)"; Break}
+								"LowResolution"		{$tmp = "Low Resolution (300 DPI)"; Break}
+								"MediumResolution"	{$tmp = "Medium Resolution (600 DPI)"; Break}
+								"HighResolution"	{$tmp = "High Resolution (1200 DPI)"; Break}
+								"Unlimited"			{$tmp = "No Limit"; Break}
+								Default {$tmp = "Universal printing print quality limit could not be determined: $($Setting.DPILimit.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -10442,9 +10443,9 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.SessionTimeZone.Value)
 							{
-								"UseServerTimeZone" {$tmp = "Use server time zone"}
-								"UseClientTimeZone" {$tmp = "Use client time zone"}
-								Default {$tmp = "Use local time of client could not be determined: $($Setting.SessionTimeZone.Value)"}
+								"UseServerTimeZone" {$tmp = "Use server time zone"; Break}
+								"UseClientTimeZone" {$tmp = "Use client time zone"; Break}
+								Default {$tmp = "Use local time of client could not be determined: $($Setting.SessionTimeZone.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -10484,11 +10485,11 @@ Function ProcessCitrixPolicies
 						{
 							Switch ($Setting.TwainCompressionLevel.Value)
 							{
-								"None"   {$tmp = "None"}
-								"Low"    {$tmp = "Low"}
-								"Medium" {$tmp = "Medium"}
-								"High"   {$tmp = "High"}
-								Default {$tmp = "TWAIN compression level could not be determined: $($Setting.TwainCompressionLevel.Value)"}
+								"None"   {$tmp = "None"; Break}
+								"Low"    {$tmp = "Low"; Break}
+								"Medium" {$tmp = "Medium"; Break}
+								"High"   {$tmp = "High"; Break}
+								Default {$tmp = "TWAIN compression level could not be determined: $($Setting.TwainCompressionLevel.Value)"; Break}
 							}
 
 							If($MSWord -or $PDF)
@@ -10627,13 +10628,13 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.ProgressiveCompressionLevel.Value)
 							{
-								"UltraHigh" {$tmp = "Ultra high"}
-								"VeryHigh"  {$tmp = "Very high"}
-								"High"      {$tmp = "High"}
-								"Normal"    {$tmp = "Normal"}
-								"Low"       {$tmp = "Low"}
-								"None"      {$tmp = "None"}
-								Default {$tmp = "Progressive compression level could not be determined: $($Setting.ProgressiveCompressionLevel.Value)"}
+								"UltraHigh" {$tmp = "Ultra high"; Break}
+								"VeryHigh"  {$tmp = "Very high"; Break}
+								"High"      {$tmp = "High"; Break}
+								"Normal"    {$tmp = "Normal"; Break}
+								"Low"       {$tmp = "Low"; Break}
+								"None"      {$tmp = "None"; Break}
+								Default {$tmp = "Progressive compression level could not be determined: $($Setting.ProgressiveCompressionLevel.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -10738,11 +10739,11 @@ Function ProcessCitrixPolicies
 							$tmp = ""
 							Switch ($Setting.LossyCompressionLevel.Value)
 							{
-								"None"   {$tmp = "None"}
-								"Low"    {$tmp = "Low"}
-								"Medium" {$tmp = "Medium"}
-								"High"   {$tmp = "High"}
-								Default {$tmp = "Lossy compression level could not be determined: $($Setting.LossyCompressionLevel.Value)"}
+								"None"   {$tmp = "None"; Break}
+								"Low"    {$tmp = "Low"; Break}
+								"Medium" {$tmp = "Medium"; Break}
+								"High"   {$tmp = "High"; Break}
+								Default {$tmp = "Lossy compression level could not be determined: $($Setting.LossyCompressionLevel.Value)"; Break}
 							}
 							
 							If($MSWord -or $PDF)
@@ -11068,9 +11069,9 @@ Function Get-PrinterModifiedSettings
 				$tmp1 = $xelement.SubString($index + 1)
 				Switch ($tmp1)
 				{
-					1 {$tmp2 = "Monochrome"}
-					2 {$tmp2 = "Color"}
-					Default {$tmp2 = "Color could not be determined: $($xelement) "}
+					1 {$tmp2 = "Monochrome"; Break}
+					2 {$tmp2 = "Color"; Break}
+					Default {$tmp2 = "Color could not be determined: $($xelement) "; Break}
 				}
 				$ReturnStr = "$txt $tmp2"
 			}
@@ -11084,13 +11085,13 @@ Function Get-PrinterModifiedSettings
 				$tmp1 = $xelement.SubString($index + 1)
 				Switch ($tmp1)
 				{
-					-1 {$tmp2 = "150 dpi"}
-					-2 {$tmp2 = "300 dpi"}
-					-3 {$tmp2 = "600 dpi"}
-					-4 {$tmp2 = "1200 dpi"}
+					-1 {$tmp2 = "150 dpi"; Break}
+					-2 {$tmp2 = "300 dpi"; Break}
+					-3 {$tmp2 = "600 dpi"; Break}
+					-4 {$tmp2 = "1200 dpi"; Break}
 					Default 
 					{
-						$tmp2 = "Custom...X resolution: $tmp1"
+						$tmp2 = "Custom...X resolution: $tmp1"; Break
 					}
 				}
 				$ReturnStr = "$txt $tmp2"
@@ -11115,9 +11116,9 @@ Function Get-PrinterModifiedSettings
 				$tmp1 = $xelement.SubString($index + 1)
 				Switch ($tmp1)
 				{
-					"portrait"  {$tmp2 = "Portrait"}
-					"landscape" {$tmp2 = "Landscape"}
-					Default {$tmp2 = "Orientation could not be determined: $($xelement) "}
+					"portrait"  {$tmp2 = "Portrait"; Break}
+					"landscape" {$tmp2 = "Landscape"; Break}
+					Default {$tmp2 = "Orientation could not be determined: $($xelement) "; Break}
 				}
 				$ReturnStr = "$txt $tmp2"
 			}
@@ -11131,10 +11132,10 @@ Function Get-PrinterModifiedSettings
 				$tmp1 = $xelement.SubString($index + 1)
 				Switch ($tmp1)
 				{
-					1 {$tmp2 = "Simplex"}
-					2 {$tmp2 = "Vertical"}
-					3 {$tmp2 = "Horizontal"}
-					Default {$tmp2 = "Duplex could not be determined: $($xelement) "}
+					1 {$tmp2 = "Simplex"; Break}
+					2 {$tmp2 = "Vertical"; Break}
+					3 {$tmp2 = "Horizontal"; Break}
+					Default {$tmp2 = "Duplex could not be determined: $($xelement) "; Break}
 				}
 				$ReturnStr = "$txt $tmp2"
 			}
@@ -11148,124 +11149,124 @@ Function Get-PrinterModifiedSettings
 				$tmp1 = $xelement.SubString($index + 1)
 				Switch ($tmp1)
 				{
-					1   {$tmp2 = "Letter"}
-					2   {$tmp2 = "Letter Small"}
-					3   {$tmp2 = "Tabloid"}
-					4   {$tmp2 = "Ledger"}
-					5   {$tmp2 = "Legal"}
-					6   {$tmp2 = "Statement"}
-					7   {$tmp2 = "Executive"}
-					8   {$tmp2 = "A3"}
-					9   {$tmp2 = "A4"}
-					10  {$tmp2 = "A4 Small"}
-					11  {$tmp2 = "A5"}
-					12  {$tmp2 = "B4 (JIS)"}
-					13  {$tmp2 = "B5 (JIS)"}
-					14  {$tmp2 = "Folio"}
-					15  {$tmp2 = "Quarto"}
-					16  {$tmp2 = "10X14"}
-					17  {$tmp2 = "11X17"}
-					18  {$tmp2 = "Note"}
-					19  {$tmp2 = "Envelope #9"}
-					20  {$tmp2 = "Envelope #10"}
-					21  {$tmp2 = "Envelope #11"}
-					22  {$tmp2 = "Envelope #12"}
-					23  {$tmp2 = "Envelope #14"}
-					24  {$tmp2 = "C Size Sheet"}
-					25  {$tmp2 = "D Size Sheet"}
-					26  {$tmp2 = "E Size Sheet"}
-					27  {$tmp2 = "Envelope DL"}
-					28  {$tmp2 = "Envelope C5"}
-					29  {$tmp2 = "Envelope C3"}
-					30  {$tmp2 = "Envelope C4"}
-					31  {$tmp2 = "Envelope C6"}
-					32  {$tmp2 = "Envelope C65"}
-					33  {$tmp2 = "Envelope B4"}
-					34  {$tmp2 = "Envelope B5"}
-					35  {$tmp2 = "Envelope B6"}
-					36  {$tmp2 = "Envelope Italy"}
-					37  {$tmp2 = "Envelope Monarch"}
-					38  {$tmp2 = "Envelope Personal"}
-					39  {$tmp2 = "US Std Fanfold"}
-					40  {$tmp2 = "German Std Fanfold"}
-					41  {$tmp2 = "German Legal Fanfold"}
-					42  {$tmp2 = "B4 (ISO)"}
-					43  {$tmp2 = "Japanese Postcard"}
-					44  {$tmp2 = "9X11"}
-					45  {$tmp2 = "10X11"}
-					46  {$tmp2 = "15X11"}
-					47  {$tmp2 = "Envelope Invite"}
-					48  {$tmp2 = "Reserved - DO NOT USE"}
-					49  {$tmp2 = "Reserved - DO NOT USE"}
-					50  {$tmp2 = "Letter Extra"}
-					51  {$tmp2 = "Legal Extra"}
-					52  {$tmp2 = "Tabloid Extra"}
-					53  {$tmp2 = "A4 Extra"}
-					54  {$tmp2 = "Letter Transverse"}
-					55  {$tmp2 = "A4 Transverse"}
-					56  {$tmp2 = "Letter Extra Transverse"}
-					57  {$tmp2 = "A Plus"}
-					58  {$tmp2 = "B Plus"}
-					59  {$tmp2 = "Letter Plus"}
-					60  {$tmp2 = "A4 Plus"}
-					61  {$tmp2 = "A5 Transverse"}
-					62  {$tmp2 = "B5 (JIS) Transverse"}
-					63  {$tmp2 = "A3 Extra"}
-					64  {$tmp2 = "A5 Extra"}
-					65  {$tmp2 = "B5 (ISO) Extra"}
-					66  {$tmp2 = "A2"}
-					67  {$tmp2 = "A3 Transverse"}
-					68  {$tmp2 = "A3 Extra Transverse"}
-					69  {$tmp2 = "Japanese Double Postcard"}
-					70  {$tmp2 = "A6"}
-					71  {$tmp2 = "Japanese Envelope Kaku #2"}
-					72  {$tmp2 = "Japanese Envelope Kaku #3"}
-					73  {$tmp2 = "Japanese Envelope Chou #3"}
-					74  {$tmp2 = "Japanese Envelope Chou #4"}
-					75  {$tmp2 = "Letter Rotated"}
-					76  {$tmp2 = "A3 Rotated"}
-					77  {$tmp2 = "A4 Rotated"}
-					78  {$tmp2 = "A5 Rotated"}
-					79  {$tmp2 = "B4 (JIS) Rotated"}
-					80  {$tmp2 = "B5 (JIS) Rotated"}
-					81  {$tmp2 = "Japanese Postcard Rotated"}
-					82  {$tmp2 = "Double Japanese Postcard Rotated"}
-					83  {$tmp2 = "A6 Rotated"}
-					84  {$tmp2 = "Japanese Envelope Kaku #2 Rotated"}
-					85  {$tmp2 = "Japanese Envelope Kaku #3 Rotated"}
-					86  {$tmp2 = "Japanese Envelope Chou #3 Rotated"}
-					87  {$tmp2 = "Japanese Envelope Chou #4 Rotated"}
-					88  {$tmp2 = "B6 (JIS)"}
-					89  {$tmp2 = "B6 (JIS) Rotated"}
-					90  {$tmp2 = "12X11"}
-					91  {$tmp2 = "Japanese Envelope You #4"}
-					92  {$tmp2 = "Japanese Envelope You #4 Rotated"}
-					93  {$tmp2 = "PRC 16K"}
-					94  {$tmp2 = "PRC 32K"}
-					95  {$tmp2 = "PRC 32K(Big)"}
-					96  {$tmp2 = "PRC Envelope #1"}
-					97  {$tmp2 = "PRC Envelope #2"}
-					98  {$tmp2 = "PRC Envelope #3"}
-					99  {$tmp2 = "PRC Envelope #4"}
-					100 {$tmp2 = "PRC Envelope #5"}
-					101 {$tmp2 = "PRC Envelope #6"}
-					102 {$tmp2 = "PRC Envelope #7"}
-					103 {$tmp2 = "PRC Envelope #8"}
-					104 {$tmp2 = "PRC Envelope #9"}
-					105 {$tmp2 = "PRC Envelope #10"}
-					106 {$tmp2 = "PRC 16K Rotated"}
-					107 {$tmp2 = "PRC 32K Rotated"}
-					108 {$tmp2 = "PRC 32K(Big) Rotated"}
-					109 {$tmp2 = "PRC Envelope #1 Rotated"}
-					110 {$tmp2 = "PRC Envelope #2 Rotated"}
-					111 {$tmp2 = "PRC Envelope #3 Rotated"}
-					112 {$tmp2 = "PRC Envelope #4 Rotated"}
-					113 {$tmp2 = "PRC Envelope #5 Rotated"}
-					114 {$tmp2 = "PRC Envelope #6 Rotated"}
-					115 {$tmp2 = "PRC Envelope #7 Rotated"}
-					116 {$tmp2 = "PRC Envelope #8 Rotated"}
-					117 {$tmp2 = "PRC Envelope #9 Rotated"}
-					Default {$tmp2 = "Paper Size could not be determined: $($xelement) "}
+					1   {$tmp2 = "Letter"; Break}
+					2   {$tmp2 = "Letter Small"; Break}
+					3   {$tmp2 = "Tabloid"; Break}
+					4   {$tmp2 = "Ledger"; Break}
+					5   {$tmp2 = "Legal"; Break}
+					6   {$tmp2 = "Statement"; Break}
+					7   {$tmp2 = "Executive"; Break}
+					8   {$tmp2 = "A3"; Break}
+					9   {$tmp2 = "A4"; Break}
+					10  {$tmp2 = "A4 Small"; Break}
+					11  {$tmp2 = "A5"; Break}
+					12  {$tmp2 = "B4 (JIS)"; Break}
+					13  {$tmp2 = "B5 (JIS)"; Break}
+					14  {$tmp2 = "Folio"; Break}
+					15  {$tmp2 = "Quarto"; Break}
+					16  {$tmp2 = "10X14"; Break}
+					17  {$tmp2 = "11X17"; Break}
+					18  {$tmp2 = "Note"; Break}
+					19  {$tmp2 = "Envelope #9"; Break}
+					20  {$tmp2 = "Envelope #10"; Break}
+					21  {$tmp2 = "Envelope #11"; Break}
+					22  {$tmp2 = "Envelope #12"; Break}
+					23  {$tmp2 = "Envelope #14"; Break}
+					24  {$tmp2 = "C Size Sheet"; Break}
+					25  {$tmp2 = "D Size Sheet"; Break}
+					26  {$tmp2 = "E Size Sheet"; Break}
+					27  {$tmp2 = "Envelope DL"; Break}
+					28  {$tmp2 = "Envelope C5"; Break}
+					29  {$tmp2 = "Envelope C3"; Break}
+					30  {$tmp2 = "Envelope C4"; Break}
+					31  {$tmp2 = "Envelope C6"; Break}
+					32  {$tmp2 = "Envelope C65"; Break}
+					33  {$tmp2 = "Envelope B4"; Break}
+					34  {$tmp2 = "Envelope B5"; Break}
+					35  {$tmp2 = "Envelope B6"; Break}
+					36  {$tmp2 = "Envelope Italy"; Break}
+					37  {$tmp2 = "Envelope Monarch"; Break}
+					38  {$tmp2 = "Envelope Personal"; Break}
+					39  {$tmp2 = "US Std Fanfold"; Break}
+					40  {$tmp2 = "German Std Fanfold"; Break}
+					41  {$tmp2 = "German Legal Fanfold"; Break}
+					42  {$tmp2 = "B4 (ISO)"; Break}
+					43  {$tmp2 = "Japanese Postcard"; Break}
+					44  {$tmp2 = "9X11"; Break}
+					45  {$tmp2 = "10X11"; Break}
+					46  {$tmp2 = "15X11"; Break}
+					47  {$tmp2 = "Envelope Invite"; Break}
+					48  {$tmp2 = "Reserved - DO NOT USE"; Break}
+					49  {$tmp2 = "Reserved - DO NOT USE"; Break}
+					50  {$tmp2 = "Letter Extra"; Break}
+					51  {$tmp2 = "Legal Extra"; Break}
+					52  {$tmp2 = "Tabloid Extra"; Break}
+					53  {$tmp2 = "A4 Extra"; Break}
+					54  {$tmp2 = "Letter Transverse"; Break}
+					55  {$tmp2 = "A4 Transverse"; Break}
+					56  {$tmp2 = "Letter Extra Transverse"; Break}
+					57  {$tmp2 = "A Plus"; Break}
+					58  {$tmp2 = "B Plus"; Break}
+					59  {$tmp2 = "Letter Plus"; Break}
+					60  {$tmp2 = "A4 Plus"; Break}
+					61  {$tmp2 = "A5 Transverse"; Break}
+					62  {$tmp2 = "B5 (JIS) Transverse"; Break}
+					63  {$tmp2 = "A3 Extra"; Break}
+					64  {$tmp2 = "A5 Extra"; Break}
+					65  {$tmp2 = "B5 (ISO) Extra"; Break}
+					66  {$tmp2 = "A2"; Break}
+					67  {$tmp2 = "A3 Transverse"; Break}
+					68  {$tmp2 = "A3 Extra Transverse"; Break}
+					69  {$tmp2 = "Japanese Double Postcard"; Break}
+					70  {$tmp2 = "A6"; Break}
+					71  {$tmp2 = "Japanese Envelope Kaku #2"; Break}
+					72  {$tmp2 = "Japanese Envelope Kaku #3"; Break}
+					73  {$tmp2 = "Japanese Envelope Chou #3"; Break}
+					74  {$tmp2 = "Japanese Envelope Chou #4"; Break}
+					75  {$tmp2 = "Letter Rotated"; Break}
+					76  {$tmp2 = "A3 Rotated"; Break}
+					77  {$tmp2 = "A4 Rotated"; Break}
+					78  {$tmp2 = "A5 Rotated"; Break}
+					79  {$tmp2 = "B4 (JIS) Rotated"; Break}
+					80  {$tmp2 = "B5 (JIS) Rotated"; Break}
+					81  {$tmp2 = "Japanese Postcard Rotated"; Break}
+					82  {$tmp2 = "Double Japanese Postcard Rotated"; Break}
+					83  {$tmp2 = "A6 Rotated"; Break}
+					84  {$tmp2 = "Japanese Envelope Kaku #2 Rotated"; Break}
+					85  {$tmp2 = "Japanese Envelope Kaku #3 Rotated"; Break}
+					86  {$tmp2 = "Japanese Envelope Chou #3 Rotated"; Break}
+					87  {$tmp2 = "Japanese Envelope Chou #4 Rotated"; Break}
+					88  {$tmp2 = "B6 (JIS)"; Break}
+					89  {$tmp2 = "B6 (JIS) Rotated"; Break}
+					90  {$tmp2 = "12X11"; Break}
+					91  {$tmp2 = "Japanese Envelope You #4"; Break}
+					92  {$tmp2 = "Japanese Envelope You #4 Rotated"; Break}
+					93  {$tmp2 = "PRC 16K"; Break}
+					94  {$tmp2 = "PRC 32K"; Break}
+					95  {$tmp2 = "PRC 32K(Big)"; Break}
+					96  {$tmp2 = "PRC Envelope #1"; Break}
+					97  {$tmp2 = "PRC Envelope #2"; Break}
+					98  {$tmp2 = "PRC Envelope #3"; Break}
+					99  {$tmp2 = "PRC Envelope #4"; Break}
+					100 {$tmp2 = "PRC Envelope #5"; Break}
+					101 {$tmp2 = "PRC Envelope #6"; Break}
+					102 {$tmp2 = "PRC Envelope #7"; Break}
+					103 {$tmp2 = "PRC Envelope #8"; Break}
+					104 {$tmp2 = "PRC Envelope #9"; Break}
+					105 {$tmp2 = "PRC Envelope #10"; Break}
+					106 {$tmp2 = "PRC 16K Rotated"; Break}
+					107 {$tmp2 = "PRC 32K Rotated"; Break}
+					108 {$tmp2 = "PRC 32K(Big) Rotated"; Break}
+					109 {$tmp2 = "PRC Envelope #1 Rotated"; Break}
+					110 {$tmp2 = "PRC Envelope #2 Rotated"; Break}
+					111 {$tmp2 = "PRC Envelope #3 Rotated"; Break}
+					112 {$tmp2 = "PRC Envelope #4 Rotated"; Break}
+					113 {$tmp2 = "PRC Envelope #5 Rotated"; Break}
+					114 {$tmp2 = "PRC Envelope #6 Rotated"; Break}
+					115 {$tmp2 = "PRC Envelope #7 Rotated"; Break}
+					116 {$tmp2 = "PRC Envelope #8 Rotated"; Break}
+					117 {$tmp2 = "PRC Envelope #9 Rotated"; Break}
+					Default {$tmp2 = "Paper Size could not be determined: $($xelement) "; Break}
 				}
 				$ReturnStr = "$txt $tmp2"
 			}
@@ -11292,11 +11293,11 @@ Function Get-PrinterModifiedSettings
 				$tmp1 = $xelement.SubString($index + 1)
 				Switch ($tmp1)
 				{
-					1 {$tmp2 = "Bitmap"}
-					2 {$tmp2 = "Download"}
-					3 {$tmp2 = "Substitute"}
-					4 {$tmp2 = "Outline"}
-					Default {$tmp2 = "TrueType could not be determined: $($xelement) "}
+					1 {$tmp2 = "Bitmap"; Break}
+					2 {$tmp2 = "Download"; Break}
+					3 {$tmp2 = "Substitute"; Break}
+					4 {$tmp2 = "Outline"; Break}
+					Default {$tmp2 = "TrueType could not be determined: $($xelement) "; Break}
 				}
 			}
 			$ReturnStr = "$txt $tmp2"
@@ -11416,10 +11417,10 @@ Function OutputSiteSettings
 		$Pair = $csitem.split('=')
 		Switch ($Pair[0])
 		{
-			"Server"				{$ConfigSQLServerPrincipalName = $Pair[1]}
-			{$Pair[0] -match "Failover"}	{$ConfigSQLServerMirrorName = $Pair[1]}
-			"Database"				{$ConfigDatabaseName = $Pair[1]}
-			{$Pair[0] -match "Initial"}	{$ConfigDatabaseName = $Pair[1]}
+			"Server"						{$ConfigSQLServerPrincipalName = $Pair[1]; Break}
+			{$Pair[0] -match "Failover"}	{$ConfigSQLServerMirrorName = $Pair[1]; Break}
+			"Database"						{$ConfigDatabaseName = $Pair[1]; Break}
+			{$Pair[0] -match "Initial"}		{$ConfigDatabaseName = $Pair[1]; Break}
 		}
 	}
 
@@ -12098,11 +12099,11 @@ Function OutputHosting
 		Line 1 "Type`t`t`t: " -nonewline
 		Switch ($xConnectionType)
 		{
-			"XenServer" {Line 0 "XenServer"}
-			"SCVMM"     {Line 0 "Microsoft System Center Virtual Machine Manager"}
-			"vCenter"   {Line 0 "VMware virtualization"}
-			"Custom"    {Line 0 "Custom"}
-			Default     {Line 0 "Hypervisor Type could not be determined: $($xConnectionType)"}
+			"XenServer" {Line 0 "XenServer"; Break}
+			"SCVMM"     {Line 0 "Microsoft System Center Virtual Machine Manager"; Break}
+			"vCenter"   {Line 0 "VMware virtualization"; Break}
+			"Custom"    {Line 0 "Custom"; Break}
+			Default     {Line 0 "Hypervisor Type could not be determined: $($xConnectionType)"; Break}
 		}
 		Line 1 "Address`t`t`t: " $xAddress
 		Line 1 "State`t`t`t: " -nonewline
@@ -12157,11 +12158,11 @@ Function OutputHosting
 		$tmp = ""
 		Switch ($xConnectionType)
 		{
-			"XenServer" {$tmp = "XenServer"}
-			"SCVMM"     {$tmp = "Microsoft System Center Virtual Machine Manager"}
-			"vCenter"   {$tmp = "VMware virtualization"}
-			"Custom"    {$tmp = "Custom"}
-			Default     {$tmp = "Hypervisor Type could not be determined: $($xConnectionType)"}
+			"XenServer" {$tmp = "XenServer"; Break}
+			"SCVMM"     {$tmp = "Microsoft System Center Virtual Machine Manager"; Break}
+			"vCenter"   {$tmp = "VMware virtualization"; Break}
+			"Custom"    {$tmp = "Custom"; Break}
+			Default     {$tmp = "Hypervisor Type could not be determined: $($xConnectionType)"; Break}
 		}
 
 		WriteHTMLLine 0 1 "Type: " $tmp
@@ -12346,10 +12347,10 @@ Function OutputDesktopOSMachine
 		Line 1 "Maintenance Mode`t: " $xMaintMode
 		Switch($Desktop.PersistUserChanges)
 		{
-			"OnLocal" {$xUserChanges = "On Local"}
-			"Discard" {$xUserChanges = "Discard"}
-			"OnPvd"   {$xUserChanges = "Personal vDisk"}
-			Default   {$xUserChanges = "Unknown: $($Desktop.PersistUserChanges)"}
+			"OnLocal" {$xUserChanges = "On Local"; Break}
+			"Discard" {$xUserChanges = "Discard"; Break}
+			"OnPvd"   {$xUserChanges = "Personal vDisk"; Break}
+			Default   {$xUserChanges = "Unknown: $($Desktop.PersistUserChanges)"; Break}
 		}
 		Line 1 "Persist User Changes`t: " $xUserChanges
 		Line 1 "Power State`t`t: " $Desktop.PowerState
@@ -12383,10 +12384,10 @@ Function OutputDesktopOSMachine
 		WriteHTMLLine 0 1 "Maintenance Mode: " $xMaintMode
 		Switch($Desktop.PersistUserChanges)
 		{
-			"OnLocal" {$xUserChanges = "On Local"}
-			"Discard" {$xUserChanges = "Discard"}
-			"OnPvd"   {$xUserChanges = "Personal vDisk"}
-			Default   {$xUserChanges = "Unknown: $($Desktop.PersistUserChanges)"}
+			"OnLocal" {$xUserChanges = "On Local"; Break}
+			"Discard" {$xUserChanges = "Discard"; Break}
+			"OnPvd"   {$xUserChanges = "Personal vDisk"; Break}
+			Default   {$xUserChanges = "Unknown: $($Desktop.PersistUserChanges)"; Break}
 		}
 		WriteHTMLLine 0 1 "Persist User Changes: " $xUserChanges
 		WriteHTMLLine 0 1 "Power State: " $Desktop.PowerState
@@ -12412,11 +12413,11 @@ Function OutputLicensing
 
 	Switch ($Script:XDSite.DesktopLicenseEdition)
 	{
-		"EXP" {$LicenseEdition = "Express Edition"}
-		"STD" {$LicenseEdition = "VDI Edition"}
-		"ENT" {$LicenseEdition = "Enterprise Edition"}
-		"PLT" { $LicenseEdition = "Platinum Edition"}
-		Default {$LicenseEdition = "License edition could not be determined: $($Script:XDSite.LicenseEdition)"}
+		"EXP" {$LicenseEdition = "Express Edition"; Break}
+		"STD" {$LicenseEdition = "VDI Edition"; Break}
+		"ENT" {$LicenseEdition = "Enterprise Edition"; Break}
+		"PLT" { $LicenseEdition = "Platinum Edition"; Break}
+		Default {$LicenseEdition = "License edition could not be determined: $($Script:XDSite.LicenseEdition)"; Break}
 	}
 
 	If($Script:XDSite.DesktopLicenseModel -eq "UserDevice")
@@ -12454,11 +12455,11 @@ Function OutputLicensing
  
 	Switch ($XDVersion)
 	{
-		"5.6" {$RequiredSADate = "February 17, 2012"}
-		"5.5" {$RequiredSADate = "July 27, 2011"}
-		"5.1" {$RequiredSADate = "November 26, 2010"}
-		"5.0" {$RequiredSADate = "November 26, 2010"}
-		Default {$RequiredSADate = "Unable to determine SA date for XD version $($XDVersion)"}
+		"5.6" {$RequiredSADate = "February 17, 2012"; Break}
+		"5.5" {$RequiredSADate = "July 27, 2011"; Break}
+		"5.1" {$RequiredSADate = "November 26, 2010"; Break}
+		"5.0" {$RequiredSADate = "November 26, 2010"; Break}
+		Default {$RequiredSADate = "Unable to determine SA date for XD version $($XDVersion)"; Break}
 	}
 
 	Write-Verbose "$(Get-Date): `tOutput licensing overview"
