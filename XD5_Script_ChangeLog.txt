@@ -3,6 +3,23 @@
 #http://www.CarlWebster.com
 # Created on April 1, 2013
 
+#Version 1.22 14-Jun-2017
+#	Add four new Cover Page properties
+#		Company Address
+#		Company Email
+#		Company Fax
+#		Company Phone
+#	Added back the WorkerGroup policy filter for XenApp 6.x
+#	Fix bug when retrieving Filters for a Policy that "applies to all objects in the Site"
+#	Fix Function Check-LoadedModule
+#	Fix several typos
+#	Fix Switch blocks by adding Break statements
+#	Remove code (168 lines) that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
+#	Replace _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
+#	Update Function ShowScriptOptions for the new Cover Page properties
+#	Update Function UpdateDocumentProperties for the new Cover Page properties
+#	Update help text
+
 #Version 1.21 13-Feb-2017
 #	Fixed French wording for Table of Contents 2 (Thanks to David Rouquier)
 
