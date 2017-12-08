@@ -3,6 +3,9 @@
 #http://www.CarlWebster.com
 # Created on April 1, 2013
 
+#Version 1.23 8-Dec-2017
+#	Updated Function WriteHTMLLine with fixes from the script template
+
 #Version 1.22 14-Jun-2017
 #	Add four new Cover Page properties
 #		Company Address
