@@ -591,9 +591,9 @@
 	No objects are output from this script.  This script creates a Word, PDF, formatted text or HTML document.
 .NOTES
 	NAME: XD5_Inventory.ps1
-	VERSION: 1.22
+	VERSION: 1.23
 	AUTHOR: Carl Webster
-	LASTEDIT: June 14, 2017
+	LASTEDIT: December 8, 2017
 #>
 
 #endregion
@@ -817,6 +817,10 @@ Param(
 #	Update Function ShowScriptOptions for the new Cover Page properties
 #	Update Function UpdateDocumentProperties for the new Cover Page properties
 #	Update help text
+#
+#Version 1.23 8-Dec-2017
+#	Updated Function WriteHTMLLine with fixes from the script template
+#
 #endregion
 
 #region initial variable testing and setup
@@ -3333,6 +3337,7 @@ Function WriteHTMLLine
 #Function created by Ken Avram
 #Function created to make output to HTML easy in this script
 #headings fixed 12-Oct-2016 by Webster
+#errors with $HTMLStyle fixed 7-Dec-2017 by Webster
 {
 	Param([int]$style=0, 
 	[int]$tabs = 0, 
@@ -3378,17 +3383,6 @@ Function WriteHTMLLine
 		#output the rest of the parameters.
 		$output += $name + $value
 
-		#added by webster 12-oct-2016
-		#if a heading, don't add the <br>
-		If($HTMLStyle -eq "")
-		{
-			$HTMLBody += "<br><font face='" + $HTMLFontName + "' " + "color='" + $color + "' size='"  + $fontsize + "'>"
-		}
-		Else
-		{
-			$HTMLBody += "<font face='" + $HTMLFontName + "' " + "color='" + $color + "' size='"  + $fontsize + "'>"
-		}
-		
 		Switch ($style)
 		{
 			1 {$HTMLStyle = "<h1>"; Break}
@@ -3409,6 +3403,18 @@ Function WriteHTMLLine
 			Default {$HTMLStyle = ""; Break}
 		}
 
+		#added by webster 12-oct-2016
+		#if a heading, don't add the <br>
+		#moved to after the two switch statements on 7-Dec-2017 to fix $HTMLStyle has not been set error
+		If($HTMLStyle -eq "")
+		{
+			$HTMLBody += "<br><font face='" + $HTMLFontName + "' " + "color='" + $color + "' size='"  + $fontsize + "'>"
+		}
+		Else
+		{
+			$HTMLBody += "<font face='" + $HTMLFontName + "' " + "color='" + $color + "' size='"  + $fontsize + "'>"
+		}
+		
 		$HTMLBody += $HTMLStyle +  "</font>"
 
 		If($options -band $htmlitalics) 
@@ -3420,13 +3426,14 @@ Function WriteHTMLLine
 		{
 			$HTMLBody += "</b>"
 		} 
-	}
-	
-	#added by webster 12-oct-2016
-	#if a heading, don't add the <br />
-	If($HTMLStyle -eq "")
-	{
-		$HTMLBody += "<br />"
+
+		#added by webster 12-oct-2016
+		#if a heading, don't add the <br />
+		#moved to inside the Else statement on 7-Dec-2017 to fix $HTMLStyle has not been set error
+		If($HTMLStyle -eq "")
+		{
+			$HTMLBody += "<br />"
+		}
 	}
 
 	out-file -FilePath $Script:FileName1 -Append -InputObject $HTMLBody 4>$Null
