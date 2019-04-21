@@ -210,6 +210,11 @@
 .PARAMETER Policies
 	Give detailed information for both Site and Citrix AD based Policies.
 	
+	Note: The Citrix Group Policy PowerShell module will not load from an elevated 
+	PowerShell session. 
+	If the module is manually imported, the module is not detected from an elevated 
+	PowerShell session.
+
 	Using the Policies parameter can cause the report to take a very long time 
 	to complete and can generate an extremely long report.
 	
@@ -591,9 +596,9 @@
 	No objects are output from this script.  This script creates a Word, PDF, formatted text or HTML document.
 .NOTES
 	NAME: XD5_Inventory.ps1
-	VERSION: 1.23
+	VERSION: 1.24
 	AUTHOR: Carl Webster
-	LASTEDIT: December 8, 2017
+	LASTEDIT: April 21, 2019
 #>
 
 #endregion
@@ -743,6 +748,67 @@ Param(
 
 # Version 1.0 released to the community on March 2, 2015
 
+#Version 1.24 21-Apr-2019
+#	If Policies parameter is used, check to see if PowerShell session is elevated. If it is,
+#		abort the script. This is the #2 support email.
+#		Added a Note to the Help Text and ReadMe file about the Citrix.GroupPolicy.Commands module:
+#		Note: The Citrix Group Policy PowerShell module will not load from an elevated PowerShell session. 
+#		If the module is manually imported, the module is not detected from an elevated PowerShell session.
+#
+#Version 1.23 8-Dec-2017
+#	Updated Function WriteHTMLLine with fixes from the script template
+#
+#Version 1.22 14-Jun-2017
+#	Add four new Cover Page properties
+#		Company Address
+#		Company Email
+#		Company Fax
+#		Company Phone
+#	Added back the WorkerGroup policy filter for XenApp 6.x
+#	Fix bug when retrieving Filters for a Policy that "applies to all objects in the Site"
+#	Fix Function Check-LoadedModule
+#	Fix several typos
+#	Fix Switch blocks by adding Break statements
+#	Remove code (168 lines) that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
+#	Replace _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
+#	Update Function ShowScriptOptions for the new Cover Page properties
+#	Update Function UpdateDocumentProperties for the new Cover Page properties
+#	Update help text
+#
+#Version 1.21 13-Feb-2017
+#	Fixed French wording for Table of Contents 2 (Thanks to David Rouquier)
+#
+#Version 1.20 7-Feb-2017
+#	Fix typos
+#	Removed snapin citrix.common.commands as it is no longer used and no cmdlets are used from that snapin
+#	Update help text
+#
+#Version 1.18 1-Dec-2016
+#	Added Catalog and Machine types Permanent and PvsPvd for "Streamed with personal vDisk"
+#	Fixed $Var -eq $Null to $Null -eq $Var
+#	Fixed $XDSite. to $Script:XDSite.
+#
+#Version 1.17 7-Nov-2016
+#	Added Chinese language support
+#
+#Version 1.16 22-Oct-2016
+#	More refinement of HTML output
+#
+#Version 1.15 19-Oct-2016
+#	Fixed formatting issues with HTML headings output
+#
+#Version 1.14 9-Feb-2016
+#	Added specifying an optional output folder
+#	Added the option to email the output file
+#	Fixed several spacing and typo errors
+#
+#Version 1.13 5-Oct-2015
+#	Added support for Word 2016
+#
+#Version 1.11
+#	Add in updated hardware inventory code
+#	Updated help text
+#
 # Version 1.1
 # Add four new parameters
 #	-NoPolicies
@@ -766,60 +832,6 @@ Param(
 # End the script if the Policies parameter is used but the citrix.grouppolicy.commands module cannot be loaded
 # Add a DeliveryGroupUtilization function that ceates an Excel graph and inserts it into the Word document.
 # DeliveryGroupUtilization function code was contributed by Eduardo Molina
-#
-#Version 1.11
-#	Add in updated hardware inventory code
-#	Updated help text
-#
-#Version 1.13 5-Oct-2015
-#	Added support for Word 2016
-#
-#Version 1.14 9-Feb-2016
-#	Added specifying an optional output folder
-#	Added the option to email the output file
-#	Fixed several spacing and typo errors
-#
-#Version 1.15 19-Oct-2016
-#	Fixed formatting issues with HTML headings output
-#
-#Version 1.16 22-Oct-2016
-#	More refinement of HTML output
-#
-#Version 1.17 7-Nov-2016
-#	Added Chinese language support
-#
-#Version 1.18 1-Dec-2016
-#	Added Catalog and Machine types Permanent and PvsPvd for "Streamed with personal vDisk"
-#	Fixed $Var -eq $Null to $Null -eq $Var
-#	Fixed $XDSite. to $Script:XDSite.
-#
-#Version 1.20 7-Feb-2017
-#	Fix typos
-#	Removed snapin citrix.common.commands as it is no longer used and no cmdlets are used from that snapin
-#	Update help text
-#
-#Version 1.21 13-Feb-2017
-#	Fixed French wording for Table of Contents 2 (Thanks to David Rouquier)
-#
-#Version 1.22 14-Jun-2017
-#	Add four new Cover Page properties
-#		Company Address
-#		Company Email
-#		Company Fax
-#		Company Phone
-#	Added back the WorkerGroup policy filter for XenApp 6.x
-#	Fix bug when retrieving Filters for a Policy that "applies to all objects in the Site"
-#	Fix Function Check-LoadedModule
-#	Fix several typos
-#	Fix Switch blocks by adding Break statements
-#	Remove code (168 lines) that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
-#	Replace _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
-#	Update Function ShowScriptOptions for the new Cover Page properties
-#	Update Function UpdateDocumentProperties for the new Cover Page properties
-#	Update help text
-#
-#Version 1.23 8-Dec-2017
-#	Updated Function WriteHTMLLine with fixes from the script template
 #
 #endregion
 
@@ -924,6 +936,51 @@ If($Folder -ne "")
 	{
 		#does not exist
 		Write-Error "Folder $Folder does not exist.  Script cannot continue"
+		Exit
+	}
+}
+
+#V1.24  Add check if $Policies -eq $True, see if PowerShell session is elevated
+#		If session is elevated, abort the script
+Function ElevatedSession
+{
+	#added in V1.24
+	$currentPrincipal = New-Object Security.Principal.WindowsPrincipal( [Security.Principal.WindowsIdentity]::GetCurrent() )
+
+	If($currentPrincipal.IsInRole( [Security.Principal.WindowsBuiltInRole]::Administrator ))
+	{
+		Write-Verbose "$(Get-Date): This is an elevated PowerShell session"
+		Return $True
+	}
+	Else
+	{
+		Write-Verbose "$(Get-Date): This is NOT an elevated PowerShell session" -Foreground White
+		Return $False
+	}
+}
+
+If($Policies -eq $True)
+{
+	Write-Verbose "$(Get-Date): Testing for elevated PowerShell session."
+	#see if session is elevated
+	$Elevated = ElevatedSession
+	
+	If($Elevated -eq $True)
+	{
+		#abort script
+		Write-Error "
+		`n
+		`n
+		`tThe Citrix Group Policy module cannot be loaded or found in an elevated PowerShell session.
+		`n
+		`n
+		`tThe Policies parameter was used and this is an elevated PowerShell session.
+		`n
+		`n
+		`tRerun the script from a non-elevated PowerShell session. The script will now close.
+		`n
+		`n"
+		Write-Verbose "$(Get-Date): "
 		Exit
 	}
 }
