@@ -250,8 +250,8 @@
 .PARAMETER AddDateTime
 	Adds a date time stamp to the end of the file name.
 	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2017 at 6PM is 2017-06-01_1800.
-	Output filename will be ReportName_2017-06-01_1800.docx (or .pdf).
+	June 1, 2020 at 6PM is 2020-06-01_1800.
+	Output filename will be ReportName_2020-06-01_1800.docx (or .pdf).
 	This parameter is disabled by default.
 	This parameter has an alias of ADT.
 .PARAMETER Hardware
@@ -520,8 +520,8 @@
 
 	Adds a date time stamp to the end of the file name.
 	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2017 at 6PM is 2017-06-01_1800.
-	Output filename will be XD5SiteName_2017-06-01_1800.docx
+	June 1, 2020 at 6PM is 2020-06-01_1800.
+	Output filename will be XD5SiteName_2020-06-01_1800.docx
 .EXAMPLE
 	PS C:\PSScript > .\XD5_Inventory.ps1 -PDF -AddDateTime
 	
@@ -536,8 +536,8 @@
 
 	Adds a date time stamp to the end of the file name.
 	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2017 at 6PM is 2017-06-01_1800.
-	Output filename will be XD5SiteName_2017-06-01_1800.pdf
+	June 1, 2020 at 6PM is 2020-06-01_1800.
+	Output filename will be XD5SiteName_2020-06-01_1800.pdf
 .EXAMPLE
 	PS C:\PSScript > .\XD5_Inventory.ps1 -Hardware
 	
@@ -596,9 +596,9 @@
 	No objects are output from this script.  This script creates a Word, PDF, formatted text or HTML document.
 .NOTES
 	NAME: XD5_Inventory.ps1
-	VERSION: 1.24
+	VERSION: 1.25
 	AUTHOR: Carl Webster
-	LASTEDIT: April 21, 2019
+	LASTEDIT: December 17, 2019
 #>
 
 #endregion
@@ -748,6 +748,14 @@ Param(
 
 # Version 1.0 released to the community on March 2, 2015
 
+#Version 1.25 17-Dec-2019
+#	Fix Swedish Table of Contents (Thanks to Johan Kallio)
+#		From 
+#			'sv-'	{ 'Automatisk innehållsförteckning2'; Break }
+#		To
+#			'sv-'	{ 'Automatisk innehållsförteckn2'; Break }
+#	Updated help text
+#
 #Version 1.24 21-Apr-2019
 #	If Policies parameter is used, check to see if PowerShell session is elevated. If it is,
 #		abort the script. This is the #2 support email.
@@ -2310,7 +2318,8 @@ Function SetWordHashTable
 			'nb-'	{ 'Automatisk tabell 2'; Break }
 			'nl-'	{ 'Automatische inhoudsopgave 2'; Break }
 			'pt-'	{ 'Sumário Automático 2'; Break }
-			'sv-'	{ 'Automatisk innehållsförteckning2'; Break }
+			# fix in 1.25 thanks to Johan Kallio 'sv-'	{ 'Automatisk innehållsförteckning2'; Break }
+			'sv-'	{ 'Automatisk innehållsförteckn2'; Break }
 			'zh-'	{ '自动目录 2'; Break }
 		}
 	)
@@ -12853,4 +12862,10 @@ Write-Verbose "$(Get-Date): Elapsed time: $($Str)"
 $runtime = $Null
 $Str = $Null
 $ErrorActionPreference = $SaveEAPreference
+			
+Write-Host "                                                                                    " -BackgroundColor Black -ForegroundColor White
+Write-Host "               This FREE script was brought to you by Conversant Group              " -BackgroundColor Black -ForegroundColor White
+Write-Host "We design, build, and manage infrastructure for a secure, dependable user experience" -BackgroundColor Black -ForegroundColor White
+Write-Host "                       Visit our website conversantgroup.com                        " -BackgroundColor Black -ForegroundColor White
+Write-Host "                                                                                    " -BackgroundColor Black -ForegroundColor White
 #endregion
