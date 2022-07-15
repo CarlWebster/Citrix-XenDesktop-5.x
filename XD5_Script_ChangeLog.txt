@@ -3,6 +3,21 @@
 #http://www.CarlWebster.com
 # Created on April 1, 2013
 
+#Version 1.27 15-Jul-2022
+#	Changed all Write-Verbose $(Get-Date) to add -Format G to put the dates in the user's locale
+#	Fixed numerous issues reported by Visual Studio Code
+#	Fixed typo found by Guy Leech "PerparingSession" should be "PreparingSession"
+#	Replaced the following functions with the most current version
+#		CheckExcelPrereq
+#		Check-LoadedModule
+#		Check-NeededPSSnapins
+#		CheckWordPrereq
+#		GetCtxGPOsInAD
+#		UpdateDocumentProperties
+#		validStateProp
+#	Updated the help text
+#	Updated the ReadMe file
+
 #Version 1.26 9-May-2020
 #	Add checking for a Word version of 0, which indicates the Office installation needs repairing
 #	Add Receive Side Scaling setting to Function OutputNICItem
